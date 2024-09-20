@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game Melhorado</title>
+    <link rel="icon" type="image/x-icon" href="logo.ico">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #111;
+            color: white;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            background-color: #222;
+            border: 2px solid white;
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        #menu, #gameOverScreen, #aboutScreen, #pauseMenu, #highScores {
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: limegreen;
+            color: white;
+            border: none;
+            margin: 10px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #32cd32;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        #score {
+            font-size: 24px;
+        }
+
+        #bestScore {
+            font-size: 18px;
+            color: #ffdf00;
+        }
+
+        #gameOverScreen, #aboutScreen, #pauseMenu, #highScores {
+            display: none;
+        }
+
+        #highScores table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            width: 80%;
+        }
+
+        #highScores th, #highScores td {
+            border: 1px solid white;
+            padding: 8px;
+            text-align: center;
+        }
+
+        #highScores th {
+            background-color: #333;
+        }
+
+        #highScores td {
+            background-color: #222;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>Bem-vindo ao Snake Game!</h1>
+        <button id="playBtn">Jogar</button>
+        <button id="aboutBtn">Sobre</button>
+        <button id="highScoresBtn">Recordes</button>
+    </div>
+
+    <div id="aboutScreen">
+        <h1>Sobre o Jogo</h1>
+        <p>Este jogo da cobrinha foi criado por Gabriel Ricardo.</p>
+        <p>Desenvolvedor apaixonado por tecnologia e programação. Feito com HTML, CSS e JavaScript!</p>
+        <button id="backToMenuBtn">Voltar ao Menu</button>
+    </div>
+
+    <div id="gameOverScreen">
+        <h1>Fim de Jogo!</h1>
+        <p id="finalScore"></p>
+        <p id="bestScore">Melhor Pontuação: 0</p>
+        <input type="text" id="playerName" placeholder="Digite seu nome" />
+        <button id="saveScoreBtn">Salvar Recorde</button>
+        <button id="restartBtn">Jogar Novamente</button>
+        <button id="backToMenuAfterGameOverBtn">Voltar ao Menu</button>
+    </div>
+
+    <div id="pauseMenu">
+        <h1>Jogo Pausado</h1>
+        <button id="resumeBtn">Continuar Jogando</button>
+        <button id="newGameBtn">Novo Jogo</button>
+        <button id="backToMainMenuBtn">Voltar ao Menu</button>
+        <button id="exitBtn">Sair</button>
+        <button id="volumeBtn">🔊 Volume: On</button>
+    </div>
+
+    <div id="highScores">
+        <h1>Recordes</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Pontuação</th>
+                </tr>
+            </thead>
+            <tbody id="scoresTableBody">
+                <!-- Recordes serão adicionados aqui -->
+            </tbody>
+        </table>
+        <button id="backToMenuFromHighScoresBtn">Voltar ao Menu</button>
+    </div>
+
+    <canvas id="snakeGame" width="400" height="400"></canvas>
+
+    <div id="score">Pontuação: 0</div>
+
+    <script>
+        const canvas = document.getElementById("snakeGame");
+        const context = canvas.getContext("2d");
+        const scoreDisplay = document.getElementById("score");
+        const bestScoreDisplay = document.getElementById("bestScore");
+        const menu = document.getElementById("menu");
+        const gameOverScreen = document.getElementById("gameOverScreen");
+        const aboutScreen = document.getElementById("aboutScreen");
+        const pauseMenu = document.getElementById("pauseMenu");
+        const highScoresScreen = document.getElementById("highScores");
+        const finalScoreDisplay = document.getElementById("finalScore");
+        const playBtn = document.getElementById("playBtn");
+        const aboutBtn = document.getElementById("aboutBtn");
+        const restartBtn = document.getElementById("restartBtn");
+        const backToMenuBtn = document.getElementById("backToMenuBtn");
+        const backToMenuAfterGameOverBtn = document.getElementById("backToMenuAfterGameOverBtn");
+        const resumeBtn = document.getElementById("resumeBtn");
+        const newGameBtn = document.getElementById("newGameBtn");
+        const backToMainMenuBtn = document.getElementById("backToMainMenuBtn");
+        const exitBtn = document.getElementById("exitBtn");
+        const volumeBtn = document.getElementById("volumeBtn");
+        const highScoresBtn = document.getElementById("highScoresBtn");
+        const backToMenuFromHighScoresBtn = document.getElementById("backToMenuFromHighScoresBtn");
+        const scoresTableBody = document.getElementById("scoresTableBody");
+        const playerNameInput = document.getElementById("playerName");
+        const saveScoreBtn = document.getElementById("saveScoreBtn");
+
+        const box = 20;
+        const canvasSize = canvas.width / box;
+        let snake, food, direction, score, speed, gameLoop, isPaused = false;
+        let bestScore = 0;
+        let soundOn = true;
+        const eatSound = new Audio('sounds/beep-07.wav');
+        const dieSound = new Audio('sounds/button-16.mp3');
+
+        function initializeGame() {
+            snake = [{ x: 9 * box, y: 9 * box }];
+            direction = null;
+            score = 0;
+            speed = 200;
+            food = spawnFood();
+            scoreDisplay.textContent = `Pontuação: ${score}`;
+            canvas.style.display = "block";
+            scoreDisplay.style.display = "block";
+        }
+
+        function spawnFood() {
+            return {
+                x: Math.floor(Math.random() * canvasSize) * box,
+                y: Math.floor(Math.random() * canvasSize) * box,
+            };
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                togglePause();
+            }
+            if (!isPaused) {
+                if (event.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
+                else if (event.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
+                else if (event.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
+                else if (event.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
+            }
+        });
+
+        function drawGame() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < snake.length; i++) {
+                context.fillStyle = i === 0 ? "lime" : "white";
+                context.fillRect(snake[i].x, snake[i].y, box, box);
+            }
+
+            context.fillStyle = "red";
+            context.fillRect(food.x, food.y, box, box);
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if (direction === "LEFT") snakeX -= box;
+            if (direction === "UP") snakeY -= box;
+            if (direction === "RIGHT") snakeX += box;
+            if (direction === "DOWN") snakeY += box;
+
+            if (snakeX === food.x && snakeY === food.y) {
+                score++;
+                speed = Math.max(100, speed * 0.95);  // Aumenta a dificuldade
+                food = spawnFood();
+                scoreDisplay.textContent = `Pontuação: ${score}`;
+                if (soundOn) eatSound.play();
+            } else {
+                snake.pop();
+            }
+
+            const newHead = { x: snakeX, y: snakeY };
+            if (isCollision(newHead, snake) || snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height) {
+                gameOver();
+                return;
+            }
+
+            snake.unshift(newHead);
+        }
+
+        function isCollision(head, snake) {
+            return snake.some(segment => segment.x === head.x && segment.y === head.y);
+        }
+
+        function gameOver() {
+            if (soundOn) dieSound.play();
+            canvas.style.display = "none";
+            scoreDisplay.style.display = "none";
+            gameOverScreen.style.display = "block";
+            finalScoreDisplay.textContent = `Pontuação Final: ${score}`;
+            updateBestScore();
+            clearInterval(gameLoop);
+        }
+
+        function updateBestScore() {
+            if (score > bestScore) {
+                bestScore = score;
+                bestScoreDisplay.textContent = `Melhor Pontuação: ${bestScore}`;
+            }
+        }
+
+        function togglePause() {
+            if (isPaused) {
+                isPaused = false;
+                gameLoop = setInterval(drawGame, speed);
+                pauseMenu.style.display = "none";
+            } else {
+                isPaused = true;
+                clearInterval(gameLoop);
+                pauseMenu.style.display = "block";
+            }
+        }
+
+        function startGame() {
+            initializeGame();
+            canvas.style.display = "block";
+            scoreDisplay.style.display = "block";
+            menu.style.display = "none";
+            gameOverScreen.style.display = "none";
+            aboutScreen.style.display = "none";
+            pauseMenu.style.display = "none";
+            highScoresScreen.style.display = "none";
+            gameLoop = setInterval(drawGame, speed);
+        }
+
+        function loadHighScores() {
+            fetch('obterRecordes.php')
+            .then(response => response.text())
+            .then(data => {
+                scoresTableBody.innerHTML = data.split('\n').map(record => {
+                    const [nome, pontuacao] = record.split(':');
+                    return `<tr><td>${nome}</td><td>${pontuacao}</td></tr>`;
+                }).join('');
+            })
+            .catch(error => {
+                console.error('Erro ao carregar recordes:', error);
+            });
+        }
+
+        playBtn.addEventListener("click", startGame);
+
+        aboutBtn.addEventListener("click", () => {
+            menu.style.display = "none";
+            aboutScreen.style.display = "block";
+        });
+
+        backToMenuBtn.addEventListener("click", () => {
+            menu.style.display = "block";
+            aboutScreen.style.display = "none";
+        });
+
+        backToMenuAfterGameOverBtn.addEventListener("click", () => {
+            menu.style.display = "block";
+            gameOverScreen.style.display = "none";
+            playerNameInput.value = "";
+            initializeGame();
+        });
+
+        restartBtn.addEventListener("click", () => {
+            initializeGame();
+            gameOverScreen.style.display = "none";
+            canvas.style.display = "block";
+            scoreDisplay.style.display = "block";
+        });
+
+        resumeBtn.addEventListener("click", () => {
+            togglePause();
+        });
+
+        newGameBtn.addEventListener("click", () => {
+            initializeGame();
+            togglePause();
+        });
+
+        backToMainMenuBtn.addEventListener("click", () => {
+            menu.style.display = "block";
+            pauseMenu.style.display = "none";
+            clearInterval(gameLoop);
+        });
+
+        exitBtn.addEventListener("click", () => {
+            window.close();  // Fecha a janela do navegador
+        });
+
+        volumeBtn.addEventListener("click", () => {
+            soundOn = !soundOn;
+            volumeBtn.textContent = soundOn ? "🔊 Volume: On" : "🔈 Volume: Off";
+        });
+
+        highScoresBtn.addEventListener("click", () => {
+            loadHighScores();
+            menu.style.display = "none";
+            highScoresScreen.style.display = "block";
+        });
+
+        backToMenuFromHighScoresBtn.addEventListener("click", () => {
+            menu.style.display = "block";
+            highScoresScreen.style.display = "none";
+        });
+
+        saveScoreBtn.addEventListener("click", () => {
+            const name = playerNameInput.value.trim();
+            if (name === "") {
+                alert('Por favor, digite seu nome antes de salvar o recorde.');
+                return;
+            }
+
+            const data = new FormData();
+            data.append('nome', name);
+            data.append('pontuacao', score);
+
+            fetch('salvarRecordes.php', {
+                method: 'POST',
+                body: data
+            })
+            .then(response => response.text())
+            .then(result => {
+                alert(result);
+                playerNameInput.value = "";
+                startGame();  // Reinicia o jogo após salvar
+            })
+            .catch(error => {
+                console.error('Erro ao salvar o recorde:', error);
+            });
+        });
+
+    </script>
+</body>
+</html>
